@@ -99,7 +99,7 @@ def tao_file_word(ten, lop, mon, noi_dung_ai):
 st.title("🏫 Smart-Print AI: Kết Nối Tri Thức")
 st.caption("Phiên bản ổn định (Stable) - Tích hợp Google Gemini")
 
-tab1, tab2 = st.tabs(["📝 SOẠN BÀI (SÁT SGK)", "📷 CHẤM BÀI (AI VISION)"])
+tab1, tab2 = st.tabs(["📝 TẠO PHIẾU BÀI TẬP", "📷 CHẤM BÀI (AI VISION)"])
 
 # --- TAB 1: SOẠN BÀI ---
 with tab1:
