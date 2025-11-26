@@ -17,18 +17,27 @@ with st.sidebar:
     if api_key:
         try:
             genai.configure(api_key=api_key)
-            # Tự động lấy danh sách model từ Google (như trong video của bạn)
-            model_list = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+            # Lấy danh sách model
+            all_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
             
-            # Ưu tiên chọn model tốt nhất
+            # --- THUẬT TOÁN TỰ CHỌN MODEL TỐT NHẤT (FIX LỖI 429) ---
+            # Ưu tiên số 1: 1.5-flash (Nhanh, Free nhiều, Ổn định)
+            # Ưu tiên số 2: 1.5-pro (Thông minh hơn nhưng chậm hơn)
             index_uu_tien = 0
-            if 'models/gemini-1.5-flash' in model_list:
-                index_uu_tien = model_list.index('models/gemini-1.5-flash')
+            if 'models/gemini-1.5-flash' in all_models:
+                index_uu_tien = all_models.index('models/gemini-1.5-flash')
+            elif 'models/gemini-1.5-pro' in all_models:
+                index_uu_tien = all_models.index('models/gemini-1.5-pro')
             
-            st.success(f"✅ Kết nối tốt! Tìm thấy {len(model_list)} bộ não AI.")
+            st.success(f"✅ Kết nối tốt! Đã tìm thấy {len(all_models)} bộ não.")
             
-            # Cho phép bạn chọn Model (để không bao giờ bị lỗi 'Not Found')
-            selected_model = st.selectbox("2. Chọn bộ não AI (Khuyên dùng 1.5-flash):", model_list, index=index_uu_tien)
+            # Tự động chọn cái 1.5-flash cho bạn
+            selected_model = st.selectbox(
+                "2. Chọn bộ não AI (Đã tự chọn cái tốt nhất):", 
+                all_models, 
+                index=index_uu_tien
+            )
+            st.info("💡 Mẹo: Hãy giữ nguyên 'gemini-1.5-flash' để không bị lỗi hết hạn mức.")
             
         except Exception as e:
             st.error(f"Lỗi Key: {e}")
@@ -47,11 +56,13 @@ def ai_soan_bai(model_name, mon, lop, chu_de, nang_luc):
     Yêu cầu: Viết văn bản thuần (không Markdown). Gồm: 1. Mục tiêu. 2. Bài tập (2 câu ví dụ bản làng/nương rẫy). 3. Gợi ý.
     """
     try:
-        # Sử dụng đúng cái tên bạn đã chọn trong danh sách
         model = genai.GenerativeModel(model_name)
         response = model.generate_content(prompt)
         return response.text
     except Exception as e:
+        # Bắt lỗi 429 để báo người dùng đổi model
+        if "429" in str(e):
+            return "LỖI HẾT HẠN MỨC: Model bạn chọn đang quá tải. Vui lòng chọn 'gemini-1.5-flash' ở cột bên trái."
         return f"Lỗi AI: {str(e)}"
 
 def ai_cham_bai(model_name, image, mon, lop):
@@ -61,6 +72,8 @@ def ai_cham_bai(model_name, image, mon, lop):
         response = model.generate_content([prompt, image])
         return response.text
     except Exception as e:
+        if "429" in str(e):
+            return "LỖI HẾT HẠN MỨC: Vui lòng chọn 'gemini-1.5-flash' ở cột bên trái."
         return f"Lỗi Vision: {str(e)}"
 
 def tao_file_word(ten, noi_dung):
@@ -74,7 +87,7 @@ def tao_file_word(ten, noi_dung):
     return buffer
 
 # --- GIAO DIỆN CHÍNH ---
-st.title("🏫 Smart-Print AI: Phiên bản Tự Động")
+st.title("🏫 Smart-Print AI: Tự Động Hóa")
 
 if not api_key:
     st.info("👈 Vui lòng nhập API Key ở cột bên trái để bắt đầu.")
@@ -96,10 +109,14 @@ with tab1:
         with st.spinner("Đang soạn thảo..."):
             if selected_model:
                 ket_qua = ai_soan_bai(selected_model, mon_hoc, lop, bai_hoc, hoc_luc)
-                st.success("Xong!")
-                st.text_area("Nội dung:", ket_qua, height=300)
-                file_doc = tao_file_word(ten_hs, ket_qua)
-                st.download_button("📥 Tải Word", file_doc, "Phieu_Bai_Tap.docx")
+                
+                if "LỖI" in ket_qua:
+                    st.error(ket_qua)
+                else:
+                    st.success("Xong!")
+                    st.text_area("Nội dung:", ket_qua, height=300)
+                    file_doc = tao_file_word(ten_hs, ket_qua)
+                    st.download_button("📥 Tải Word", file_doc, "Phieu_Bai_Tap.docx")
             else:
                 st.error("Chưa chọn được Model AI.")
 
@@ -111,4 +128,7 @@ with tab2:
              st.image(image, width=300)
              if selected_model:
                 ket_qua = ai_cham_bai(selected_model, image, mon_hoc, lop)
-                st.write(ket_qua)
+                if "LỖI" in ket_qua:
+                    st.error(ket_qua)
+                else:
+                    st.write(ket_qua)
