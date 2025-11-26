@@ -1,164 +1,152 @@
 import streamlit as st
-import time
-import random
+import google.generativeai as genai
 from docx import Document
 from io import BytesIO
 from PIL import Image
 
-# --- 1. CẤU HÌNH & DỮ LIỆU ---
-st.set_page_config(page_title="Smart-Print AI Điện Biên", page_icon="🏫", layout="wide")
+# --- CẤU HÌNH TRANG WEB ---
+st.set_page_config(page_title="Smart-Print AI (Real)", page_icon="🧠", layout="wide")
 
-# Dữ liệu giả lập Mục tiêu bài học (SGK Kết nối tri thức)
-MUC_TIEU_SGK = {
-    "Toán": "Thực hiện được phép cộng, trừ, nhân, chia. Giải quyết được vấn đề gắn với thực tiễn.",
-    "Tiếng Việt": "Đọc trôi chảy, hiểu nội dung văn bản. Viết đúng chính tả và ngữ pháp.",
-    "Tin học": "Bước đầu làm quen với thiết bị số. Biết bảo vệ sức khỏe khi sử dụng máy tính.",
-    "Công nghệ": "Sử dụng được vật liệu thủ công. Nhận biết được một số sản phẩm công nghệ.",
-    "Khoa học": "Khám phá thế giới tự nhiên. Biết cách chăm sóc sức khỏe bản thân.",
-    "Lịch sử & Địa lý": "Nhận biết được cảnh quan thiên nhiên và di tích lịch sử địa phương.",
-    "Tiếng Anh": "Nghe, nói, đọc, viết các từ vựng và mẫu câu cơ bản theo chủ đề.",
-    "Đạo đức": "Biết yêu thương gia đình, thầy cô, bạn bè. Trung thực trong học tập.",
-    "Mĩ thuật": "Biết sử dụng màu sắc, đường nét để tạo hình sản phẩm đơn giản.",
-    "Âm nhạc": "Hát đúng giai điệu, lời ca. Biết vận động theo nhịp điệu bài hát.",
-    "Thể dục": "Thực hiện được các động tác đội hình đội ngũ và bài tập rèn luyện tư thế."
-}
+# --- SIDEBAR: CÀI ĐẶT API KEY ---
+with st.sidebar:
+    st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/Google_Gemini_logo.svg/2560px-Google_Gemini_logo.svg.png", width=150)
+    st.header("🔑 KẾT NỐI BỘ NÃO AI")
+    api_key = st.text_input("Nhập Google API Key của bạn:", type="password", help="Lấy key tại aistudio.google.com")
+    
+    if api_key:
+        genai.configure(api_key=api_key)
+        st.success("Đã kết nối Google Gemini! 🟢")
+    else:
+        st.warning("Vui lòng nhập API Key để AI hoạt động.")
 
-# Hàm tạo file Word
-def tao_file_word(ten_hs, mon_hoc, lop, noi_dung, loi_khuyen, muc_tieu):
+    st.markdown("---")
+    st.header("👤 Hồ sơ học sinh")
+    ten_hs = st.text_input("Họ tên", "Lò Văn Páo")
+    lop = st.selectbox("Khối lớp", ["Lớp 1", "Lớp 2", "Lớp 3", "Lớp 4", "Lớp 5"])
+
+# --- HÀM 1: AI SOẠN BÀI (REAL) ---
+def ai_soan_bai(mon, lop, chu_de, nang_luc):
+    # Đây là "Câu thần chú" (Prompt) bắt AI phải đóng vai giáo viên giỏi
+    prompt = f"""
+    Bạn là một chuyên gia giáo dục tiểu học Việt Nam, am hiểu tường tận bộ sách giáo khoa 'Kết nối tri thức với cuộc sống'.
+    Nhiệm vụ: Soạn phiếu bài tập môn {mon} cho học sinh {lop}.
+    
+    Thông tin đầu vào:
+    - Chủ đề/Bài học: {chu_de} (Thuộc sách Kết nối tri thức).
+    - Năng lực học sinh: {nang_luc}.
+    - Địa phương: Tỉnh Điện Biên (Học sinh dân tộc thiểu số).
+    
+    Yêu cầu đầu ra:
+    1. Trích xuất Mục tiêu bài học (Yêu cầu cần đạt) chính xác theo sách giáo khoa.
+    2. Nội dung bài tập:
+       - Nếu học sinh Yếu: Bài tập cơ bản, nhiều ví dụ, ngôn ngữ đơn giản, gần gũi (ví dụ về nương rẫy, hoa ban, con trâu...).
+       - Nếu học sinh Giỏi: Có câu hỏi vận dụng cao.
+    3. Trình bày rõ ràng: Phần A (Kiến thức nhớ), Phần B (Bài tập), Phần C (Gợi ý).
+    4. Không dùng các ký tự markdown phức tạp, hãy viết dạng văn bản thuần để dễ đưa vào Word.
+    """
+    
+    try:
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        response = model.generate_content(prompt)
+        return response.text
+    except Exception as e:
+        return f"Lỗi kết nối AI: {str(e)}"
+
+# --- HÀM 2: AI CHẤM BÀI (REAL VISION) ---
+def ai_cham_bai(image, mon, lop):
+    prompt = f"""
+    Hãy đóng vai giáo viên chấm bài môn {mon} lớp {lop}.
+    Nhiệm vụ:
+    1. Nhìn vào hình ảnh bài làm của học sinh.
+    2. Đọc nội dung chữ viết tay (OCR).
+    3. Kiểm tra đúng/sai so với kiến thức chuẩn.
+    4. Chấm điểm trên thang 10.
+    5. Viết lời nhận xét chi tiết, ân cần, khích lệ (phù hợp tâm lý học sinh tiểu học).
+    6. Chỉ ra lỗi sai cụ thể (nếu có) và cách sửa.
+    """
+    
+    try:
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        response = model.generate_content([prompt, image])
+        return response.text
+    except Exception as e:
+        return f"Lỗi xử lý hình ảnh: {str(e)}"
+
+# --- HÀM 3: TẠO FILE WORD ---
+def tao_file_word(ten, lop, mon, noi_dung_ai):
     doc = Document()
-    doc.add_heading(f'PHIẾU BÀI TẬP: {ten_hs.upper()}', 0)
-    doc.add_paragraph(f'Môn: {mon_hoc} - {lop}')
+    doc.add_heading(f'PHIẾU BÀI TẬP: {ten.upper()}', 0)
+    doc.add_paragraph(f'Môn: {mon} - {lop}')
     doc.add_paragraph('Bộ sách: Kết nối tri thức với cuộc sống')
-    doc.add_paragraph(f'Mục tiêu bài học: {muc_tieu}')
     doc.add_paragraph('-'*50)
-    doc.add_heading('A. BÀI TẬP THỰC HÀNH', level=1)
-    doc.add_paragraph(noi_dung)
-    doc.add_heading('B. GÓC SƯ PHẠM (AI Gợi ý)', level=1)
-    doc.add_paragraph(f"Lời khuyên: {loi_khuyen}")
+    
+    # Xử lý nội dung AI trả về để đưa vào Word đẹp hơn
+    doc.add_paragraph(noi_dung_ai)
+    
     doc.add_paragraph('\n')
-    doc.add_paragraph('--- Smart-Print AI: Đồng hành cùng giáo dục vùng cao ---')
+    doc.add_paragraph('--- Smart-Print AI: Ứng dụng trí tuệ nhân tạo Điện Biên ---')
     buffer = BytesIO()
     doc.save(buffer)
     buffer.seek(0)
     return buffer
 
-# --- 2. GIAO DIỆN CHÍNH ---
-st.title("🏫 Smart-Print AI: Hệ Sinh Thái Giáo Dục Số")
-st.markdown("**Địa phương:** Tỉnh Điện Biên | **Bộ sách:** Kết nối tri thức với cuộc sống")
-st.markdown("---")
+# --- GIAO DIỆN CHÍNH (3 TABS) ---
+st.title("🏫 Smart-Print AI: Kết Nối Tri Thức")
+st.caption("Phiên bản tích hợp Google Gemini - Hiểu sâu sách giáo khoa & Chấm bài qua ảnh")
 
-# Sidebar nhập liệu chung
-with st.sidebar:
-    st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/1/11/FPT_logo_2010.svg/1200px-FPT_logo_2010.svg.png", width=100, caption="Logo Trường/Dự án")
-    st.header("👤 Hồ sơ học sinh")
-    ten_hs = st.text_input("Họ tên", "Lò Thị Mai")
-    lop = st.selectbox("Khối lớp", ["Lớp 1", "Lớp 2", "Lớp 3", "Lớp 4", "Lớp 5"])
-    hoc_luc = st.select_slider("Mức độ năng lực", options=["Yếu", "Trung bình", "Khá", "Giỏi"])
-    st.info("💡 Hệ thống tự động liên kết dữ liệu với kho học liệu số.")
-
-# TẠO 3 TAB CHỨC NĂNG
-tab1, tab2, tab3 = st.tabs(["📝 SOẠN BÀI & TẢI VỀ", "📷 CHẤM BÀI QUA ẢNH (AI)", "📚 TRA CỨU SGK"])
+tab1, tab2 = st.tabs(["📝 SOẠN BÀI (SÁT SGK)", "📷 CHẤM BÀI (AI VISION)"])
 
 # --- TAB 1: SOẠN BÀI ---
 with tab1:
-    col_mon, col_action = st.columns([3, 1])
-    with col_mon:
-        mon_hoc = st.selectbox("Chọn môn học:", 
-            ["Toán", "Tiếng Việt", "Tin học", "Công nghệ", "Khoa học", 
-             "Lịch sử & Địa lý", "Tiếng Anh", "Đạo đức", "Mĩ thuật", "Âm nhạc", "Thể dục"])
-    with col_action:
-        st.write("") # Spacer
+    col1, col2 = st.columns(2)
+    with col1:
+        mon_hoc = st.selectbox("Môn học", 
+            ["Toán", "Tiếng Việt", "Tiếng Anh", "Tin học", "Công nghệ", 
+             "Khoa học", "Lịch sử & Địa lý", "Đạo đức", "Tự nhiên & Xã hội"])
+        bai_hoc = st.text_input("Tên bài học hoặc Chủ đề (Ví dụ: Bài 5 - Phép cộng có nhớ)", "Bài 10: Làm quen với máy tính")
+    
+    with col2:
+        hoc_luc = st.radio("Mức độ đề bài", ["Cơ bản (Dành cho HS yếu)", "Trung bình", "Nâng cao (Dành cho HS giỏi)"])
         st.write("")
-        btn_tao = st.button("🚀 TẠO PHIẾU", type="primary", use_container_width=True)
+        btn_soan = st.button("🚀 AI SOẠN BÀI NGAY", type="primary")
 
-    if btn_tao:
-        with st.spinner(f"Đang tham chiếu SGK {mon_hoc} để soạn bài..."):
-            time.sleep(1.5)
-            # Demo nội dung
-            muc_tieu = MUC_TIEU_SGK.get(mon_hoc, "Bám sát chương trình GDPT 2018")
-            
-            if mon_hoc == "Toán":
-                noi_dung = "Bài 1: Tính nhẩm...\nBài 2: Giải toán có lời văn về thu hoạch nông sản..."
-            elif mon_hoc == "Tin học":
-                noi_dung = "Câu 1: Em hãy khoanh tròn vào thiết bị là máy tính.\nCâu 2: Tư thế ngồi đúng..."
-            elif mon_hoc == "Thể dục":
-                noi_dung = "Hoạt động: Thực hiện động tác vươn thở và tay (Mỗi động tác 2 lần 8 nhịp)."
-            else:
-                noi_dung = f"Câu hỏi ôn tập kiến thức môn {mon_hoc} tuần này.\nHoạt động thực hành tại nhà/bản làng."
-            
-            loi_khuyen = "Hãy khen ngợi khi em hoàn thành nhiệm vụ."
+    if btn_soan:
+        if not api_key:
+            st.error("⚠️ Vui lòng nhập API Key ở cột bên trái trước!")
+        else:
+            with st.spinner("AI đang đọc sách 'Kết nối tri thức' và soạn bài cho em..."):
+                # GỌI HÀM AI THẬT
+                noi_dung_ai = ai_soan_bai(mon_hoc, lop, bai_hoc, hoc_luc)
+                
+                st.success("✅ Đã soạn xong!")
+                with st.expander("👀 Xem trước nội dung"):
+                    st.write(noi_dung_ai)
+                
+                # Tải về
+                file_word = tao_file_word(ten_hs, lop, mon_hoc, noi_dung_ai)
+                st.download_button("📥 TẢI PHIẾU WORD (.docx)", file_word, f"{ten_hs}_{mon_hoc}.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
 
-            # Hiển thị
-            st.success("✅ Đã tạo xong!")
-            with st.expander("👀 Xem trước nội dung phiếu"):
-                st.write(f"**Mục tiêu:** {muc_tieu}")
-                st.code(noi_dung, language=None)
-            
-            # Tải về
-            file_word = tao_file_word(ten_hs, mon_hoc, lop, noi_dung, loi_khuyen, muc_tieu)
-            st.download_button("📥 TẢI PHIẾU WORD (.docx)", file_word, f"{ten_hs}_{mon_hoc}.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-
-# --- TAB 2: CHẤM BÀI QUA ẢNH (AI VISION) ---
+# --- TAB 2: CHẤM BÀI ---
 with tab2:
-    st.header("🤖 Trợ lý chấm bài & Nhận xét")
-    st.write("Tải lên hình ảnh phiếu bài tập học sinh đã làm (chụp bằng điện thoại).")
+    st.info("Chụp ảnh bài làm của học sinh và tải lên. AI sẽ đọc chữ viết tay và chấm điểm.")
+    uploaded_file = st.file_uploader("Tải ảnh bài làm...", type=['jpg', 'png', 'jpeg'])
     
-    uploaded_file = st.file_uploader("Chọn ảnh bài làm...", type=['jpg', 'png', 'jpeg'])
-    
-    if uploaded_file is not None:
-        col_img, col_result = st.columns(2)
+    if uploaded_file:
+        image = Image.open(uploaded_file)
+        st.image(image, caption='Bài làm học sinh', width=400)
         
-        with col_img:
-            image = Image.open(uploaded_file)
-            st.image(image, caption='Bài làm của học sinh', use_column_width=True)
-            btn_cham = st.button("✨ AI PHÂN TÍCH & CHẤM ĐIỂM")
-            
-        with col_result:
-            if btn_cham:
-                with st.spinner("AI đang đọc chữ viết tay và so sánh đáp án..."):
-                    time.sleep(2) # Giả lập thời gian xử lý
+        if st.button("✨ AI CHẤM BÀI"):
+            if not api_key:
+                st.error("⚠️ Chưa có API Key!")
+            else:
+                with st.spinner("AI đang phân tích nét chữ và chấm điểm..."):
+                    # GỌI HÀM AI VISION THẬT
+                    ket_qua_cham = ai_cham_bai(image, mon_hoc, lop)
                     
-                    # KẾT QUẢ GIẢ LẬP (MÔ PHỎNG)
-                    diem = random.randint(6, 10)
-                    nhan_xet = ""
-                    if diem >= 9:
-                        nhan_xet = "Em làm bài rất tốt! Chữ viết sạch đẹp. Đã hiểu rõ mục tiêu bài học."
-                        color = "green"
-                    elif diem >= 7:
-                        nhan_xet = "Em làm bài khá. Tuy nhiên cần chú ý lỗi chính tả ở câu 2."
-                        color = "orange"
-                    else:
-                        nhan_xet = "Em cần cố gắng hơn. Chưa nắm vững kiến thức cơ bản."
-                        color = "red"
-                    
-                    st.markdown(f"### Kết quả: :{color}[{diem}/10 điểm]")
-                    st.info(f"**Nhận xét chi tiết:**\n{nhan_xet}")
-                    
-                    st.markdown("**Đánh giá mức độ đạt mục tiêu:**")
-                    st.progress(diem * 10)
-                    st.caption(f"Căn cứ theo chuẩn kiến thức kĩ năng môn {mon_hoc}.")
-
-# --- TAB 3: TRA CỨU SGK (LIÊN KẾT) ---
-with tab3:
-    st.header("📖 Kết nối tri thức với cuộc sống")
-    st.write("Hệ thống tự động trích xuất mục tiêu bài học để giáo viên đối chiếu.")
-    
-    col_sgk_1, col_sgk_2 = st.columns([2, 1])
-    
-    with col_sgk_1:
-        st.subheader(f"Mục tiêu môn: {mon_hoc}")
-        st.success(MUC_TIEU_SGK.get(mon_hoc, "Đang cập nhật dữ liệu..."))
-        
-        st.markdown("### Gợi ý phương pháp dạy học:")
-        st.markdown("- **Phương pháp trực quan:** Sử dụng tranh ảnh, vật thật (ngô, khoai, sắn...).")
-        st.markdown("- **Phương pháp trò chơi:** 'Rung chuông vàng', 'Ai nhanh hơn'.")
-        
-    with col_sgk_2:
-        st.info("🔗 **Nguồn tài liệu chính thống**")
-        st.write("Để xem chi tiết từng trang sách, thầy cô vui lòng truy cập Hành trang số (NXB Giáo dục):")
-        st.link_button("🌐 Truy cập Hành Trang Số", "https://hanhtrangso.nxbgd.vn/")
-        st.image("https://hanhtrangso.nxbgd.vn/img/logo.png", width=150)
+                    st.markdown("### 📝 KẾT QUẢ ĐÁNH GIÁ CỦA AI")
+                    st.write(ket_qua_cham)
+                    st.balloons()
 
 # --- FOOTER ---
 st.markdown("---")
-st.caption("© 2024 Dự án Chuyển đổi số Giáo dục Điện Biên. Powered by Streamlit & AI.")
+st.markdown(f"**Liên kết dữ liệu:** [Hành trang số](https://hanhtrangso.nxbgd.vn/) | **Core AI:** Google Gemini 1.5 Flash")
